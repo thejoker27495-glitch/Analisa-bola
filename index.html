@@ -1,0 +1,1111 @@
+```html
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisa Odds Bola</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#09090b',
+                        darkcard: '#121217',
+                        darkaccent: '#181820',
+                        brand: { 500: '#6366f1', 600: '#4f46e5' }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta+Sans', sans-serif; }
+        .tab-btn.active { border-color: #6366f1; color: #818cf8; background: rgba(99, 102, 241, 0.08); }
+        .sub-tab-btn.active { border-color: #6366f1; color: #818cf8; }
+        .modern-card { background: #121217; border: 1px solid rgba(255, 255, 255, 0.06); }
+        .table-container { overflow-x: auto; }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+        th { background-color: rgba(255, 255, 255, 0.02); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; }
+        .score-cell { padding: 0.35rem; text-align: center; border: 1px solid rgba(255, 255, 255, 0.04); font-size: 0.8rem; border-radius: 4px; }
+        .score-header { background-color: rgba(255, 255, 255, 0.03); font-weight: 600; font-size: 0.75rem; color: #9ca3af; }
+        .score-bg-high { background-color: rgba(99, 102, 241, 0.35); color: #c7d2fe; }
+        .score-bg-med { background-color: rgba(99, 102, 241, 0.15); color: #e0e7ff; }
+        .score-bg-low { background-color: transparent; color: #6b7280; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27273a; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <header class="modern-card border-b border-white/5 sticky top-0 z-20 px-4 py-3.5">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold shadow-sm">
+                    ⚽
+                </div>
+                <div>
+                    <h1 class="text-sm sm:text-base font-bold tracking-tight text-white leading-tight">Analisa Odds Bola</h1>
+                    <p class="text-[10px] text-gray-400 font-medium">Poisson & Supabase Cloud</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-1.5 text-xs bg-white/5 px-2.5 py-1 rounded-full border border-white/5 text-gray-400">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="text-[11px]">Online</span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="max-w-4xl mx-auto w-full px-4 pt-4">
+        <div class="grid grid-cols-3 gap-1.5 bg-darkcard p-1 rounded-xl border border-white/5">
+            <button class="tab-btn active px-2.5 py-2 rounded-lg font-medium text-xs transition-all flex items-center justify-center space-x-1.5" onclick="switchMenu('menuInput')">
+                <span>📁</span> <span class="truncate">1. Data CSV</span>
+            </button>
+            <button class="tab-btn px-2.5 py-2 rounded-lg font-medium text-xs text-gray-400 hover:text-gray-200 transition-all flex items-center justify-center space-x-1.5" onclick="switchMenu('menuPrediksi')">
+                <span>📊</span> <span class="truncate">2. Analisa</span>
+            </button>
+            <button class="tab-btn px-2.5 py-2 rounded-lg font-medium text-xs text-gray-400 hover:text-gray-200 transition-all flex items-center justify-center space-x-1.5" onclick="switchMenu('menuSetting')">
+                <span>⚙️</span> <span class="truncate">3. Supabase</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-grow p-4 max-w-4xl mx-auto w-full space-y-4">
+        
+        <!-- Risk banner -->
+        <div class="modern-card rounded-xl p-3 border-l-2 border-amber-500/80 flex items-start space-x-2.5 text-xs text-gray-300">
+            <span class="text-amber-400 text-sm shrink-0">⚠️</span>
+            <div>
+                <strong class="text-white font-medium">Peringatan:</strong> Aplikasi ini untuk edukasi statistik hobi. Bukan jaminan kemenangan taruhan finansial.
+            </div>
+        </div>
+
+        <!-- ================= MENU 1: INPUT DATA CSV ================= -->
+        <section id="menuInput" class="menu-section space-y-4">
+            <div class="modern-card rounded-xl p-4 sm:p-5 space-y-4">
+                <div>
+                    <h2 class="text-sm font-bold text-white flex items-center space-x-2">
+                        <span>📂</span><span>Unggah Riwayat Pertandingan (CSV)</span>
+                    </h2>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Format <a href="https://www.football-data.co.uk/data.php" target="_blank" class="text-indigo-400 hover:underline">football-data.co.uk</a>. Kolom wajib: Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR.</p>
+                </div>
+                
+                <div class="relative border border-dashed border-white/10 hover:border-indigo-500/40 rounded-xl p-5 text-center transition-all group">
+                    <input type="file" id="csvFileInput" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div class="space-y-1.5 pointer-events-none">
+                        <div class="text-indigo-400 text-xl group-hover:scale-105 transition-transform">📄</div>
+                        <div class="text-xs font-medium text-gray-200">Ketuk atau pilih file CSV liga</div>
+                        <div class="text-[10px] text-gray-500">Mendukung format standar liga sepak bola</div>
+                    </div>
+                </div>
+                
+                <div id="uploadStatus" class="text-xs text-amber-400 hidden flex items-center space-x-2">
+                    <svg class="animate-spin h-3.5 w-3.5 text-amber-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                    <span class="text-[11px]">Memproses data pertandingan...</span>
+                </div>
+                
+                <div id="dataSummary" class="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg hidden"></div>
+                <div id="uploadError" class="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg hidden"></div>
+
+                <!-- Tombol Simpan ke Supabase -->
+                <div id="supabaseSaveContainer" class="pt-1 hidden">
+                    <button onclick="saveDataToSupabase()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm">
+                        <span>☁️</span> <span>Simpan Data ke Supabase Cloud</span>
+                    </button>
+                    <div id="supabaseSaveStatus" class="text-[11px] mt-1.5 hidden"></div>
+                </div>
+            </div>
+
+            <!-- Panel Load dari Supabase -->
+            <div class="modern-card rounded-xl p-4 sm:p-5 space-y-3">
+                <div>
+                    <h2 class="text-sm font-bold text-white flex items-center space-x-2">
+                        <span>🔄</span><span>Muat Data dari Supabase Cloud</span>
+                    </h2>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Ambil kembali riwayat data yang sudah tersimpan di database.</p>
+                </div>
+                <button onclick="loadDataFromSupabase()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm">
+                    <span>📥</span> <span>Ambil Data dari Cloud</span>
+                </button>
+                <div id="supabaseLoadStatus" class="text-[11px] mt-1.5 hidden"></div>
+            </div>
+        </section>
+
+        <!-- ================= MENU 2: PREDIKSI & ANALISA ================= -->
+        <section id="menuPrediksi" class="menu-section hidden space-y-4">
+            
+            <!-- Sub-navigasi -->
+            <div class="flex border-b border-white/5 space-x-5 text-xs font-medium">
+                <button class="sub-tab-btn active pb-2.5 border-b-2 border-indigo-500 text-indigo-400 transition-colors" onclick="switchSubTab('subAnalisaOdds')">Kalibrasi Odds</button>
+                <button class="sub-tab-btn pb-2.5 text-gray-400 hover:text-gray-200 transition-colors" onclick="switchSubTab('subPrediksiPoisson')">Prediksi Poisson</button>
+                <button class="sub-tab-btn pb-2.5 text-gray-400 hover:text-gray-200 transition-colors" onclick="switchSubTab('subBacktest')">Backtest Model</button>
+            </div>
+
+            <!-- Sub 1: Kalibrasi Odds -->
+            <div id="subAnalisaOdds" class="sub-tab-content space-y-3">
+                <div class="modern-card rounded-xl p-4 sm:p-5 space-y-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-white">Kalibrasi Odds (B365)</h2>
+                        <p class="text-[11px] text-gray-400">Membandingkan probabilitas tersirat pasar dengan hasil aktual.</p>
+                    </div>
+                    <div id="oddsWarning" class="text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg hidden">Kolom odds (B365H, B365D, B365A) tidak lengkap di CSV. Analisa ini dilewati.</div>
+                    
+                    <div class="table-container rounded-lg border border-white/5">
+                        <table class="w-full text-xs" id="calibrationTable">
+                            <thead>
+                                <tr>
+                                    <th>Range (Home)</th>
+                                    <th>Laga</th>
+                                    <th>Bandar</th>
+                                    <th>Aktual</th>
+                                    <th>Deviasi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calibrationBody">
+                                <tr><td colspan="5" class="text-center text-gray-500 py-4">Belum ada data dimuat.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub 2: Prediksi Poisson -->
+            <div id="subPrediksiPoisson" class="sub-tab-content hidden space-y-3">
+                <div class="modern-card rounded-xl p-4 sm:p-5 space-y-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-white">Simulasi Pertandingan</h2>
+                        <p class="text-[11px] text-gray-400">Pilih tim untuk menghitung probabilitas skor Poisson.</p>
+                    </div>
+                    
+                    <div id="noDataWarningPoisson" class="text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg">Silakan unggah atau muat data terlebih dahulu di Menu 1.</div>
+
+                    <div id="predictionFormContainer" class="opacity-40 pointer-events-none space-y-3 transition-opacity">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-[11px] font-medium text-gray-300 mb-1">Tim Tuan Rumah</label>
+                                <select id="homeTeamSelect" class="w-full bg-darkaccent border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500"></select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-gray-300 mb-1">Tim Tamu</label>
+                                <select id="awayTeamSelect" class="w-full bg-darkaccent border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500"></select>
+                            </div>
+                        </div>
+                        
+                        <!-- Input Odds Manual -->
+                        <div class="bg-white/[0.02] border border-white/5 p-3 rounded-lg space-y-2.5">
+                            <label class="block text-[11px] font-medium text-gray-300 cursor-pointer flex items-center">
+                                <input type="checkbox" id="useManualOdds" class="mr-2 rounded accent-indigo-500" onchange="toggleManualOdds()">
+                                Bandingkan Odds Bandar Terbaru (Opsional)
+                            </label>
+                            <div id="manualOddsInputs" class="grid grid-cols-3 gap-2 hidden">
+                                <div>
+                                    <label class="text-[10px] text-gray-400 block mb-0.5">Odds Home</label>
+                                    <input type="number" id="oddH" step="0.01" min="1" class="w-full bg-darkaccent border border-white/10 rounded-lg p-1.5 text-xs text-white outline-none focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-gray-400 block mb-0.5">Odds Draw</label>
+                                    <input type="number" id="oddD" step="0.01" min="1" class="w-full bg-darkaccent border border-white/10 rounded-lg p-1.5 text-xs text-white outline-none focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-gray-400 block mb-0.5">Odds Away</label>
+                                    <input type="number" id="oddA" step="0.01" min="1" class="w-full bg-darkaccent border border-white/10 rounded-lg p-1.5 text-xs text-white outline-none focus:border-indigo-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="calculatePrediction()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-3 rounded-lg text-xs transition-all shadow-sm">
+                            ⚡ Hitung Probabilitas Poisson
+                        </button>
+                    </div>
+
+                    <!-- Hasil Prediksi -->
+                    <div id="predictionResults" class="hidden space-y-3 pt-3 border-t border-white/5">
+                        <div>
+                            <h3 class="text-xs font-semibold text-gray-300 mb-2">Probabilitas 1X2</h3>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="bg-darkaccent border border-white/5 p-2.5 rounded-lg text-center">
+                                    <div class="text-[10px] text-gray-400 truncate" id="lblHomeWin">Home</div>
+                                    <div class="text-lg font-bold text-emerald-400 mt-0.5" id="probHome">-</div>
+                                </div>
+                                <div class="bg-darkaccent border border-white/5 p-2.5 rounded-lg text-center">
+                                    <div class="text-[10px] text-gray-400 truncate">Seri</div>
+                                    <div class="text-lg font-bold text-amber-400 mt-0.5" id="probDraw">-</div>
+                                </div>
+                                <div class="bg-darkaccent border border-white/5 p-2.5 rounded-lg text-center">
+                                    <div class="text-[10px] text-gray-400 truncate" id="lblAwayWin">Away</div>
+                                    <div class="text-lg font-bold text-rose-400 mt-0.5" id="probAway">-</div>
+                                </div>
+                            </div>
+                            <div id="valueBetResult" class="text-xs bg-darkaccent border border-white/5 p-2.5 rounded-lg mt-2 hidden"></div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xs font-semibold text-gray-300 mb-1.5">Gol Over / Under 2.5</h3>
+                            <div class="bg-darkaccent border border-white/5 p-2.5 rounded-lg space-y-1.5">
+                                <div class="w-full bg-white/5 rounded-full h-2.5 relative overflow-hidden">
+                                    <div id="barOver" class="bg-indigo-500 h-2.5 absolute left-0 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <div class="flex justify-between text-[11px] font-medium">
+                                    <span class="text-indigo-300">Over 2.5: <strong id="probOver" class="text-white">-</strong></span>
+                                    <span class="text-gray-400">Under 2.5: <strong id="probUnder" class="text-white">-</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xs font-semibold text-gray-300 mb-1.5">5 Skor Paling Mungkin</h3>
+                            <div class="grid grid-cols-5 gap-1.5" id="topScoresContainer"></div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xs font-semibold text-gray-300 mb-1.5">Matriks Skor Eksak (0-5)</h3>
+                            <div class="table-container rounded-lg border border-white/5">
+                                <table class="w-full border-collapse">
+                                    <thead>
+                                        <tr>
+                                            <th class="score-header p-1 text-center">H \ A</th>
+                                            <th class="score-header p-1 text-center">0</th>
+                                            <th class="score-header p-1 text-center">1</th>
+                                            <th class="score-header p-1 text-center">2</th>
+                                            <th class="score-header p-1 text-center">3</th>
+                                            <th class="score-header p-1 text-center">4</th>
+                                            <th class="score-header p-1 text-center">5</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scoreMatrixBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub 3: Backtest Model -->
+            <div id="subBacktest" class="sub-tab-content hidden space-y-3">
+                <div class="modern-card rounded-xl p-4 sm:p-5 space-y-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-white">Backtesting Model Historis</h2>
+                        <p class="text-[11px] text-gray-400">Uji performa model (80% data latih, 20% data uji).</p>
+                    </div>
+                    
+                    <button onclick="runBacktest()" id="btnBacktest" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-3 rounded-lg text-xs transition-all shadow-sm">
+                        🚀 Jalankan Backtest
+                    </button>
+
+                    <div id="backtestLoading" class="text-xs text-amber-400 hidden flex items-center space-x-2">
+                        <svg class="animate-spin h-3.5 w-3.5 text-amber-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                        <span class="text-[11px]">Menghitung backtest...</span>
+                    </div>
+
+                    <div id="backtestResults" class="hidden space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-darkaccent border border-white/5 p-3 rounded-lg text-center">
+                                <div class="text-[10px] text-gray-400">Total Uji</div>
+                                <div class="text-lg font-bold text-white mt-0.5" id="btTotalMatch">-</div>
+                            </div>
+                            <div class="bg-darkaccent border border-white/5 p-3 rounded-lg text-center">
+                                <div class="text-[10px] text-gray-400">Akurasi Model</div>
+                                <div class="text-lg font-bold text-indigo-400 mt-0.5" id="btModelAcc">-</div>
+                            </div>
+                            <div class="bg-darkaccent border border-white/5 p-3 rounded-lg text-center">
+                                <div class="text-[10px] text-gray-400">Akurasi Bandar</div>
+                                <div class="text-lg font-bold text-emerald-400 mt-0.5" id="btBookieAcc">-</div>
+                            </div>
+                            <div class="bg-darkaccent border border-white/5 p-3 rounded-lg text-center">
+                                <div class="text-[10px] text-gray-400">ROI Simulasi</div>
+                                <div class="text-lg font-bold mt-0.5" id="btROI">-</div>
+                            </div>
+                        </div>
+                        <div class="bg-white/[0.02] border border-white/5 p-3 rounded-lg text-xs text-gray-300">
+                            <strong>Kesimpulan:</strong> <span id="btConclusion" class="text-gray-400"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ================= MENU 3: SETTING SUPABASE ================= -->
+        <section id="menuSetting" class="menu-section hidden space-y-4">
+            <div class="modern-card rounded-xl p-4 sm:p-5 space-y-3">
+                <div>
+                    <h2 class="text-sm font-bold text-white">Konfigurasi Supabase Cloud</h2>
+                    <p class="text-[11px] text-gray-400">Masukkan Project URL dan Anon Key untuk penyimpanan cloud.</p>
+                </div>
+                
+                <div class="space-y-2.5">
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-300 mb-1">Supabase Project URL</label>
+                        <input type="text" id="supabaseUrlInput" placeholder="https://xyzproject.supabase.co" class="w-full bg-darkaccent border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-300 mb-1">Supabase Anon Key</label>
+                        <input type="password" id="supabaseKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsIn..." class="w-full bg-darkaccent border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-300 mb-1">Nama Tabel</label>
+                        <input type="text" id="supabaseTableInput" value="match_history" class="w-full bg-darkaccent border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button onclick="saveSupabaseConfig()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition-all shadow-sm">
+                            Simpan Pengaturan
+                        </button>
+                        <button onclick="testSupabaseConnection()" class="bg-white/5 hover:bg-white/10 text-white font-medium py-2 px-3 rounded-lg text-xs border border-white/5 transition-all">
+                            Uji Koneksi
+                        </button>
+                    </div>
+                    <div id="settingStatus" class="text-xs mt-1.5 hidden"></div>
+                </div>
+            </div>
+
+            <div class="modern-card rounded-xl p-4 sm:p-5 space-y-2.5">
+                <h3 class="text-xs font-bold text-indigo-400">Panduan Setup Tabel Supabase (SQL Editor)</h3>
+                <p class="text-[11px] text-gray-400">Jalankan perintah SQL berikut di dashboard Supabase Anda:</p>
+                <pre class="bg-black/60 border border-white/5 p-2.5 rounded-lg text-[10px] text-emerald-300 font-mono overflow-x-auto">
+create table if not exists match_history (
+  id bigint generated by default as identity primary key,
+  payload jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Nonaktifkan RLS agar penyimpanan mulus
+alter table match_history disable row level security;
+                </pre>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let matchData = []; 
+        let teams = new Set(); 
+        let teamStats = {}; 
+        let leagueAvgHomeGoals = 0;
+        let leagueAvgAwayGoals = 0;
+        let hasOddsData = false;
+        const MAX_SCORE = 5;
+        let supabaseClient = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUrl = localStorage.getItem('sb_url') || '';
+            const savedKey = localStorage.getItem('sb_key') || '';
+            const savedTable = localStorage.getItem('sb_table') || 'match_history';
+
+            document.getElementById('supabaseUrlInput').value = savedUrl;
+            document.getElementById('supabaseKeyInput').value = savedKey;
+            document.getElementById('supabaseTableInput').value = savedTable;
+
+            if (savedUrl && savedKey) {
+                try {
+                    supabaseClient = window.supabase.createClient(savedUrl, savedKey);
+                } catch(e) {
+                    console.error("Gagal inisialisasi Supabase awal:", e);
+                }
+            }
+        });
+
+        function switchMenu(menuId) {
+            document.querySelectorAll('.menu-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('nav .tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(menuId).classList.remove('hidden');
+            event.currentTarget.classList.add('active');
+        }
+
+        function switchSubTab(subId) {
+            document.querySelectorAll('.sub-tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.sub-tab-btn').forEach(el => {
+                el.classList.remove('border-b-2', 'border-indigo-500', 'text-indigo-400');
+                el.classList.add('text-gray-400');
+            });
+            document.getElementById(subId).classList.remove('hidden');
+            event.currentTarget.classList.add('border-b-2', 'border-indigo-500', 'text-indigo-400');
+            event.currentTarget.classList.remove('text-gray-400');
+        }
+
+        function toggleManualOdds() {
+            const isChecked = document.getElementById('useManualOdds').checked;
+            const container = document.getElementById('manualOddsInputs');
+            if(isChecked) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+                document.getElementById('oddH').value = '';
+                document.getElementById('oddD').value = '';
+                document.getElementById('oddA').value = '';
+            }
+        }
+
+        document.getElementById('csvFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('uploadStatus').classList.remove('hidden');
+            document.getElementById('uploadError').classList.add('hidden');
+            document.getElementById('supabaseSaveContainer').classList.add('hidden');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                processCSV(e.target.result);
+            };
+            reader.onerror = function() {
+                showError("Gagal membaca file.");
+            }
+            reader.readAsText(file);
+        });
+
+        function showError(msg) {
+            const errDiv = document.getElementById('uploadError');
+            errDiv.textContent = msg;
+            errDiv.classList.remove('hidden');
+            document.getElementById('uploadStatus').classList.add('hidden');
+        }
+
+        function processCSV(csvText) {
+            const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
+            if (lines.length < 2) {
+                return showError("File CSV kosong atau tidak valid.");
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            const idxHome = headers.indexOf('HomeTeam');
+            const idxAway = headers.indexOf('AwayTeam');
+            const idxFTHG = headers.indexOf('FTHG');
+            const idxFTAG = headers.indexOf('FTAG');
+            const idxFTR = headers.indexOf('FTR');
+
+            if (idxHome === -1 || idxAway === -1 || idxFTHG === -1 || idxFTAG === -1) {
+                return showError("Kolom wajib tidak ditemukan! Pastikan ada: HomeTeam, AwayTeam, FTHG, FTAG.");
+            }
+
+            const idxB365H = headers.indexOf('B365H');
+            const idxB365D = headers.indexOf('B365D');
+            const idxB365A = headers.indexOf('B365A');
+            hasOddsData = (idxB365H !== -1 && idxB365D !== -1 && idxB365A !== -1);
+
+            matchData = [];
+            teams.clear();
+            let totalHomeGoals = 0;
+            let totalAwayGoals = 0;
+            let validMatches = 0;
+
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(','); 
+                if (row.length < headers.length) continue; 
+
+                const hTeam = row[idxHome].trim();
+                const aTeam = row[idxAway].trim();
+                const hGoals = parseInt(row[idxFTHG]);
+                const aGoals = parseInt(row[idxFTAG]);
+                const result = row[idxFTR] ? row[idxFTR].trim() : (hGoals > aGoals ? 'H' : (hGoals < aGoals ? 'A' : 'D'));
+
+                if (!hTeam || !aTeam || isNaN(hGoals) || isNaN(aGoals)) continue;
+
+                teams.add(hTeam);
+                teams.add(aTeam);
+
+                let match = {
+                    home: hTeam,
+                    away: aTeam,
+                    fthg: hGoals,
+                    ftag: aGoals,
+                    ftr: result
+                };
+
+                if (hasOddsData) {
+                    const oh = parseFloat(row[idxB365H]);
+                    const od = parseFloat(row[idxB365D]);
+                    const oa = parseFloat(row[idxB365A]);
+                    if (!isNaN(oh) && !isNaN(od) && !isNaN(oa)) {
+                        match.odds = { h: oh, d: od, a: oa };
+                    }
+                }
+
+                matchData.push(match);
+                totalHomeGoals += hGoals;
+                totalAwayGoals += aGoals;
+                validMatches++;
+            }
+
+            if (validMatches === 0) {
+                return showError("Tidak ada baris data yang valid berhasil diekstrak.");
+            }
+
+            leagueAvgHomeGoals = totalHomeGoals / validMatches;
+            leagueAvgAwayGoals = totalAwayGoals / validMatches;
+
+            teams.forEach(team => {
+                teamStats[team] = {
+                    homeGames: 0, awayGames: 0,
+                    homeGoalsScored: 0, homeGoalsConceded: 0,
+                    awayGoalsScored: 0, awayGoalsConceded: 0
+                };
+            });
+
+            matchData.forEach(m => {
+                let tH = teamStats[m.home];
+                tH.homeGames++;
+                tH.homeGoalsScored += m.fthg;
+                tH.homeGoalsConceded += m.ftag;
+
+                let tA = teamStats[m.away];
+                tA.awayGames++;
+                tA.awayGoalsScored += m.ftag;
+                tA.awayGoalsConceded += m.fthg;
+            });
+
+            teams.forEach(team => {
+                let t = teamStats[team];
+                let avgHomeScored = t.homeGames > 0 ? t.homeGoalsScored / t.homeGames : leagueAvgHomeGoals;
+                t.attackStrengthHome = avgHomeScored / leagueAvgHomeGoals;
+
+                let avgAwayScored = t.awayGames > 0 ? t.awayGoalsScored / t.awayGames : leagueAvgAwayGoals;
+                t.attackStrengthAway = avgAwayScored / leagueAvgAwayGoals;
+
+                let avgHomeConceded = t.homeGames > 0 ? t.homeGoalsConceded / t.homeGames : leagueAvgAwayGoals;
+                t.defenseStrengthHome = avgHomeConceded / leagueAvgAwayGoals;
+
+                let avgAwayConceded = t.awayGames > 0 ? t.awayGoalsConceded / t.awayGames : leagueAvgHomeGoals;
+                t.defenseStrengthAway = avgAwayConceded / leagueAvgHomeGoals;
+            });
+
+            document.getElementById('uploadStatus').classList.add('hidden');
+            const summaryDiv = document.getElementById('dataSummary');
+            summaryDiv.innerHTML = `Berhasil memuat <strong>${validMatches}</strong> pertandingan & <strong>${teams.size}</strong> tim. Rata-rata gol: Home (${leagueAvgHomeGoals.toFixed(2)}), Away (${leagueAvgAwayGoals.toFixed(2)}).`;
+            summaryDiv.classList.remove('hidden');
+            
+            if(supabaseClient) {
+                document.getElementById('supabaseSaveContainer').classList.remove('hidden');
+            }
+
+            populateTeamDropdowns();
+            runOddsCalibration();
+        }
+
+        function populateTeamDropdowns() {
+            const hSelect = document.getElementById('homeTeamSelect');
+            const aSelect = document.getElementById('awayTeamSelect');
+            hSelect.innerHTML = ''; aSelect.innerHTML = '';
+            
+            let sortedTeams = Array.from(teams).sort();
+            sortedTeams.forEach(t => {
+                hSelect.add(new Option(t, t));
+                aSelect.add(new Option(t, t));
+            });
+            if(sortedTeams.length > 1) {
+                aSelect.selectedIndex = 1;
+            }
+
+            document.getElementById('noDataWarningPoisson').classList.add('hidden');
+            const formContainer = document.getElementById('predictionFormContainer');
+            formContainer.classList.remove('opacity-40', 'pointer-events-none');
+        }
+
+        function runOddsCalibration() {
+            const warn = document.getElementById('oddsWarning');
+            const tbody = document.getElementById('calibrationBody');
+            tbody.innerHTML = '';
+
+            if (!hasOddsData) {
+                warn.classList.remove('hidden');
+                return;
+            }
+            warn.classList.add('hidden');
+
+            const buckets = [
+                { min: 1.0, max: 1.5, matches: 0, actualWins: 0, impliedProbSum: 0 },
+                { min: 1.5, max: 1.8, matches: 0, actualWins: 0, impliedProbSum: 0 },
+                { min: 1.8, max: 2.2, matches: 0, actualWins: 0, impliedProbSum: 0 },
+                { min: 2.2, max: 3.0, matches: 0, actualWins: 0, impliedProbSum: 0 },
+                { min: 3.0, max: 5.0, matches: 0, actualWins: 0, impliedProbSum: 0 },
+                { min: 5.0, max: 999, matches: 0, actualWins: 0, impliedProbSum: 0 }
+            ];
+
+            matchData.forEach(m => {
+                if (!m.odds) return;
+                let invH = 1 / m.odds.h;
+                let invD = 1 / m.odds.d;
+                let invA = 1 / m.odds.a;
+                let overround = invH + invD + invA;
+                let trueProbH = invH / overround;
+
+                for (let b of buckets) {
+                    if (m.odds.h >= b.min && m.odds.h < b.max) {
+                        b.matches++;
+                        b.impliedProbSum += trueProbH;
+                        if (m.ftr === 'H') b.actualWins++;
+                        break;
+                    }
+                }
+            });
+
+            buckets.forEach(b => {
+                if (b.matches === 0) return;
+                let avgImplied = (b.impliedProbSum / b.matches) * 100;
+                let actualProb = (b.actualWins / b.matches) * 100;
+                let diff = actualProb - avgImplied;
+                let colorClass = diff >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                let label = b.max === 999 ? `> 5.0` : `${b.min.toFixed(1)} - ${b.max.toFixed(1)}`;
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="font-medium text-white">${label}</td>
+                    <td>${b.matches}</td>
+                    <td>${avgImplied.toFixed(1)}%</td>
+                    <td>${actualProb.toFixed(1)}%</td>
+                    <td class="${colorClass} font-bold">${diff > 0 ? '+' : ''}${diff.toFixed(1)}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function factorial(n) {
+            if (n === 0 || n === 1) return 1;
+            let result = 1;
+            for (let i = 2; i <= n; i++) result *= i;
+            return result;
+        }
+
+        function poisson(x, lambda) {
+            return (Math.exp(-lambda) * Math.pow(lambda, x)) / factorial(x);
+        }
+
+        function calculatePrediction() {
+            const hTeam = document.getElementById('homeTeamSelect').value;
+            const aTeam = document.getElementById('awayTeamSelect').value;
+
+            if (hTeam === aTeam) return;
+
+            document.getElementById('predictionResults').classList.remove('hidden');
+            document.getElementById('lblHomeWin').innerText = hTeam;
+            document.getElementById('lblAwayWin').innerText = aTeam;
+
+            let tH = teamStats[hTeam];
+            let tA = teamStats[aTeam];
+
+            let expectedHomeGoals = tH.attackStrengthHome * tA.defenseStrengthAway * leagueAvgHomeGoals;
+            let expectedAwayGoals = tA.attackStrengthAway * tH.defenseStrengthHome * leagueAvgAwayGoals;
+
+            let scoreMatrix = [];
+            let probHomeWin = 0, probDraw = 0, probAwayWin = 0, probOver25 = 0;
+            let flatScores = [];
+
+            const matrixBody = document.getElementById('scoreMatrixBody');
+            matrixBody.innerHTML = '';
+
+            for (let i = 0; i <= MAX_SCORE; i++) {
+                scoreMatrix[i] = [];
+                let tr = document.createElement('tr');
+                let th = document.createElement('th');
+                th.innerText = i;
+                th.className = 'score-header p-1 text-center';
+                tr.appendChild(th);
+
+                for (let j = 0; j <= MAX_SCORE; j++) {
+                    let p = poisson(i, expectedHomeGoals) * poisson(j, expectedAwayGoals);
+                    scoreMatrix[i][j] = p;
+                    
+                    if (i > j) probHomeWin += p;
+                    else if (i === j) probDraw += p;
+                    else probAwayWin += p;
+
+                    if ((i + j) > 2) probOver25 += p;
+
+                    flatScores.push({ h: i, a: j, p: p });
+
+                    let td = document.createElement('td');
+                    let pPct = p * 100;
+                    td.innerText = pPct.toFixed(1) + '%';
+                    if (pPct > 5) td.className = 'score-cell score-bg-high font-bold';
+                    else if (pPct > 2) td.className = 'score-cell score-bg-med';
+                    else td.className = 'score-cell score-bg-low';
+
+                    tr.appendChild(td);
+                }
+                matrixBody.appendChild(tr);
+            }
+
+            let totalP = probHomeWin + probDraw + probAwayWin;
+            probHomeWin /= totalP;
+            probDraw /= totalP;
+            probAwayWin /= totalP;
+
+            document.getElementById('probHome').innerText = (probHomeWin * 100).toFixed(1) + '%';
+            document.getElementById('probDraw').innerText = (probDraw * 100).toFixed(1) + '%';
+            document.getElementById('probAway').innerText = (probAwayWin * 100).toFixed(1) + '%';
+
+            let pOverPct = probOver25 * 100;
+            let pUnderPct = 100 - pOverPct;
+            document.getElementById('probOver').innerText = pOverPct.toFixed(1) + '%';
+            document.getElementById('probUnder').innerText = pUnderPct.toFixed(1) + '%';
+            document.getElementById('barOver').style.width = pOverPct + '%';
+
+            flatScores.sort((a, b) => b.p - a.p);
+            const topScoresContainer = document.getElementById('topScoresContainer');
+            topScoresContainer.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                let s = flatScores[i];
+                let div = document.createElement('div');
+                div.className = 'bg-darkaccent border border-white/5 p-2 rounded-lg text-center';
+                div.innerHTML = `<div class="font-bold text-xs text-white">${s.h} - ${s.a}</div>
+                                 <div class="text-[10px] text-indigo-300">${(s.p * 100).toFixed(1)}%</div>`;
+                topScoresContainer.appendChild(div);
+            }
+
+            evaluateManualOdds(probHomeWin, probDraw, probAwayWin);
+        }
+
+        function evaluateManualOdds(p1, pX, p2) {
+            const isManual = document.getElementById('useManualOdds').checked;
+            const resDiv = document.getElementById('valueBetResult');
+            
+            if (!isManual) {
+                resDiv.classList.add('hidden');
+                return;
+            }
+
+            const o1 = parseFloat(document.getElementById('oddH').value);
+            const oX = parseFloat(document.getElementById('oddD').value);
+            const o2 = parseFloat(document.getElementById('oddA').value);
+
+            if (isNaN(o1) || isNaN(oX) || isNaN(o2)) {
+                resDiv.classList.remove('hidden');
+                resDiv.innerHTML = `<span class="text-amber-400">Lengkapi ketiga odds manual dengan benar.</span>`;
+                return;
+            }
+
+            let v1 = (p1 * o1) - 1;
+            let vX = (pX * oX) - 1;
+            let v2 = (p2 * o2) - 1;
+
+            let bets = [];
+            if (v1 > 0.05) bets.push(`Home (${(v1*100).toFixed(1)}%)`);
+            if (vX > 0.05) bets.push(`Draw (${(vX*100).toFixed(1)}%)`);
+            if (v2 > 0.05) bets.push(`Away (${(v2*100).toFixed(1)}%)`);
+
+            resDiv.classList.remove('hidden');
+            if (bets.length > 0) {
+                resDiv.className = 'text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-2.5 rounded-lg mt-2';
+                resDiv.innerHTML = `<strong>Value Bet:</strong> <span class="font-bold">${bets.join(', ')}</span>`;
+            } else {
+                resDiv.className = 'text-xs bg-white/5 border border-white/5 text-gray-400 p-2.5 rounded-lg mt-2';
+                resDiv.innerHTML = `Tidak ada value bet signifikan ditemukan.`;
+            }
+        }
+
+        function runBacktest() {
+            if (matchData.length === 0) return;
+
+            document.getElementById('btnBacktest').disabled = true;
+            document.getElementById('backtestLoading').classList.remove('hidden');
+            document.getElementById('backtestResults').classList.add('hidden');
+
+            setTimeout(() => {
+                const totalData = matchData.length;
+                const trainSize = Math.floor(totalData * 0.8);
+                const trainData = matchData.slice(0, trainSize);
+                const testData = matchData.slice(trainSize);
+
+                let t_teams = new Set();
+                let t_teamStats = {};
+                let t_totalHG = 0, t_totalAG = 0;
+
+                trainData.forEach(m => {
+                    t_teams.add(m.home); t_teams.add(m.away);
+                    t_totalHG += m.fthg; t_totalAG += m.ftag;
+                });
+
+                let t_LAvgHG = t_totalHG / trainData.length;
+                let t_LAvgAG = t_totalAG / trainData.length;
+
+                t_teams.forEach(team => {
+                    t_teamStats[team] = { hg:0, ag:0, hc:0, ac:0, hGames:0, aGames:0 };
+                });
+
+                trainData.forEach(m => {
+                    t_teamStats[m.home].hGames++;
+                    t_teamStats[m.home].hg += m.fthg;
+                    t_teamStats[m.home].hc += m.ftag;
+
+                    t_teamStats[m.away].aGames++;
+                    t_teamStats[m.away].ag += m.ftag;
+                    t_teamStats[m.away].ac += m.fthg;
+                });
+
+                t_teams.forEach(team => {
+                    let s = t_teamStats[team];
+                    s.attH = (s.hGames > 0 ? s.hg / s.hGames : t_LAvgHG) / t_LAvgHG;
+                    s.attA = (s.aGames > 0 ? s.ag / s.aGames : t_LAvgAG) / t_LAvgAG;
+                    s.defH = (s.hGames > 0 ? s.hc / s.hGames : t_LAvgAG) / t_LAvgAG;
+                    s.defA = (s.aGames > 0 ? s.ac / s.aGames : t_LAvgHG) / t_LAvgHG;
+                });
+
+                let correctModel = 0, correctBookie = 0, validTestMatches = 0;
+                let startBank = 100, currBank = 100;
+
+                testData.forEach(m => {
+                    if (!t_teamStats[m.home] || !t_teamStats[m.away]) return;
+
+                    let sH = t_teamStats[m.home];
+                    let sA = t_teamStats[m.away];
+
+                    let expHG = sH.attH * sA.defA * t_LAvgHG;
+                    let expAG = sA.attA * sH.defH * t_LAvgAG;
+
+                    let prob1 = 0, probX = 0, prob2 = 0;
+                    for (let i = 0; i <= 5; i++) {
+                        for (let j = 0; j <= 5; j++) {
+                            let p = poisson(i, expHG) * poisson(j, expAG);
+                            if (i > j) prob1 += p;
+                            else if (i === j) probX += p;
+                            else prob2 += p;
+                        }
+                    }
+
+                    let modelPred = 'D';
+                    if (prob1 > probX && prob1 > prob2) modelPred = 'H';
+                    if (prob2 > probX && prob2 > prob1) modelPred = 'A';
+                    if (modelPred === m.ftr) correctModel++;
+
+                    if (m.odds) {
+                        let bookiePred = 'D';
+                        let minOdd = Math.min(m.odds.h, m.odds.d, m.odds.a);
+                        if (minOdd === m.odds.h) bookiePred = 'H';
+                        else if (minOdd === m.odds.a) bookiePred = 'A';
+                        if (bookiePred === m.ftr) correctBookie++;
+
+                        let invH = 1/m.odds.h, invD = 1/m.odds.d, invA = 1/m.odds.a;
+                        let overround = invH + invD + invA;
+                        let v1 = prob1 - (invH/overround);
+                        let vX = probX - (invD/overround);
+                        let v2 = prob2 - (invA/overround);
+
+                        let maxVal = Math.max(v1, vX, v2);
+                        if (maxVal > 0.05) {
+                            currBank -= 1;
+                            if (maxVal === v1 && m.ftr === 'H') currBank += m.odds.h;
+                            else if (maxVal === vX && m.ftr === 'D') currBank += m.odds.d;
+                            else if (maxVal === v2 && m.ftr === 'A') currBank += m.odds.a;
+                        }
+                    }
+                    validTestMatches++;
+                });
+
+                document.getElementById('backtestLoading').classList.add('hidden');
+                document.getElementById('btnBacktest').disabled = false;
+
+                if (validTestMatches === 0) return;
+
+                let accModel = (correctModel / validTestMatches) * 100;
+                document.getElementById('btTotalMatch').innerText = validTestMatches;
+                document.getElementById('btModelAcc').innerText = accModel.toFixed(1) + '%';
+
+                if (hasOddsData) {
+                    let accBookie = (correctBookie / validTestMatches) * 100;
+                    document.getElementById('btBookieAcc').innerText = accBookie.toFixed(1) + '%';
+                    let roi = ((currBank - startBank) / startBank) * 100;
+                    let roiEl = document.getElementById('btROI');
+                    roiEl.innerText = (roi > 0 ? '+' : '') + roi.toFixed(1) + '%';
+                    roiEl.className = roi > 0 ? 'text-lg font-bold text-emerald-400 mt-0.5' : 'text-lg font-bold text-rose-400 mt-0.5';
+                    document.getElementById('btConclusion').innerText = "Backtest selesai membandingkan model dengan pasar.";
+                } else {
+                    document.getElementById('btBookieAcc').innerText = 'N/A';
+                    document.getElementById('btROI').innerText = 'N/A';
+                    document.getElementById('btConclusion').innerText = "Data odds tidak ditemukan dalam CSV.";
+                }
+
+                document.getElementById('backtestResults').classList.remove('hidden');
+            }, 300);
+        }
+
+        function saveSupabaseConfig() {
+            const url = document.getElementById('supabaseUrlInput').value.trim();
+            const key = document.getElementById('supabaseKeyInput').value.trim();
+            const table = document.getElementById('supabaseTableInput').value.trim();
+
+            localStorage.setItem('sb_url', url);
+            localStorage.setItem('sb_key', key);
+            localStorage.setItem('sb_table', table);
+
+            const status = document.getElementById('settingStatus');
+            status.classList.remove('hidden');
+
+            if (!url || !key) {
+                status.className = 'text-xs mt-1.5 text-rose-400';
+                status.innerText = 'URL dan Key tidak boleh kosong.';
+                return;
+            }
+
+            try {
+                supabaseClient = window.supabase.createClient(url, key);
+                status.className = 'text-xs mt-1.5 text-emerald-400';
+                status.innerText = 'Konfigurasi berhasil disimpan.';
+            } catch(e) {
+                status.className = 'text-xs mt-1.5 text-rose-400';
+                status.innerText = 'Gagal inisialisasi: ' + e.message;
+            }
+        }
+
+        async function testSupabaseConnection() {
+            const status = document.getElementById('settingStatus');
+            status.classList.remove('hidden');
+
+            if (!supabaseClient) {
+                const url = document.getElementById('supabaseUrlInput').value.trim();
+                const key = document.getElementById('supabaseKeyInput').value.trim();
+                if(!url || !key) {
+                    status.className = 'text-xs mt-1.5 text-rose-400';
+                    status.innerText = 'Simpan URL dan Key terlebih dahulu.';
+                    return;
+                }
+                supabaseClient = window.supabase.createClient(url, key);
+            }
+
+            const tableName = document.getElementById('supabaseTableInput').value.trim() || 'match_history';
+            status.className = 'text-xs mt-1.5 text-amber-400';
+            status.innerText = 'Menguji koneksi...';
+
+            try {
+                const { data, error } = await supabaseClient.from(tableName).select('id').limit(1);
+                if (error) throw error;
+                status.className = 'text-xs mt-1.5 text-emerald-400';
+                status.innerText = 'Koneksi berhasil terhubung!';
+            } catch(err) {
+                status.className = 'text-xs mt-1.5 text-rose-400';
+                status.innerText = 'Koneksi gagal: ' + err.message;
+            }
+        }
+
+        async function saveDataToSupabase() {
+            const status = document.getElementById('supabaseSaveStatus');
+            status.classList.remove('hidden');
+
+            if (!supabaseClient || matchData.length === 0) return;
+
+            const tableName = document.getElementById('supabaseTableInput').value.trim() || 'match_history';
+            status.className = 'text-xs mt-1.5 text-amber-400';
+            status.innerText = `Menyimpan ${matchData.length} data...`;
+
+            try {
+                const payloadObj = {
+                    matches: matchData,
+                    uploaded_at: new Date().toISOString(),
+                    total_matches: matchData.length
+                };
+
+                const { error } = await supabaseClient
+                    .from(tableName)
+                    .insert([{ payload: payloadObj }]);
+
+                if (error) throw error;
+
+                status.className = 'text-xs mt-1.5 text-emerald-400';
+                status.innerText = 'Berhasil menyimpan data ke Cloud!';
+            } catch(err) {
+                status.className = 'text-xs mt-1.5 text-rose-400';
+                if (err.message && err.message.includes('row-level security')) {
+                    status.innerHTML = `Gagal RLS: Nonaktifkan RLS di Supabase:<br><code class="bg-black/50 px-1 py-0.5 rounded text-[10px] text-amber-300 block mt-1">alter table ${tableName} disable row level security;</code>`;
+                } else {
+                    status.innerText = 'Gagal: ' + err.message;
+                }
+            }
+        }
+
+        async function loadDataFromSupabase() {
+            const status = document.getElementById('supabaseLoadStatus');
+            status.classList.remove('hidden');
+
+            if (!supabaseClient) {
+                status.className = 'text-xs mt-1.5 text-rose-400';
+                status.innerText = 'Supabase belum dikonfigurasi di Menu 3.';
+                return;
+            }
+
+            const tableName = document.getElementById('supabaseTableInput').value.trim() || 'match_history';
+            status.className = 'text-xs mt-1.5 text-amber-400';
+            status.innerText = 'Mengambil data dari Cloud...';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from(tableName)
+                    .select('payload')
+                    .order('id', { ascending: false })
+                    .limit(1);
+
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    status.className = 'text-xs mt-1.5 text-amber-400';
+                    status.innerText = 'Tidak ada data ditemukan di tabel Supabase.';
+                    return;
+                }
+
+                const savedPayload = data[0].payload;
+                if (!savedPayload || !savedPayload.matches) {
+                    throw new Error("Format payload tidak valid.");
+                }
+
+                matchData = savedPayload.matches;
+                
+                teams.clear();
+                let totalHomeGoals = 0;
+                let totalAwayGoals = 0;
+                hasOddsData = false;
+
+                matchData.forEach(m => {
+                    teams.add(m.home);
+                    teams.add(m.away);
+                    totalHomeGoals += m.fthg;
+                    totalAwayGoals += m.ftag;
+                    if(m.odds) hasOddsData = true;
+                });
+
+                leagueAvgHomeGoals = totalHomeGoals / matchData.length;
+                leagueAvgAwayGoals = totalAwayGoals / matchData.length;
+
+                teams.forEach(team => {
+                    teamStats[team] = {
+                        homeGames: 0, awayGames: 0,
+                        homeGoalsScored: 0, homeGoalsConceded: 0,
+                        awayGoalsScored: 0, awayGoalsConceded: 0
+                    };
+                });
+
+                matchData.forEach(m => {
+                    let tH = teamStats[m.home];
+                    tH.homeGames++;
+                    tH.homeGoalsScored += m.fthg;
+                    tH.homeGoalsConceded += m.ftag;
+
+                    let tA = teamStats[m.away];
+                    tA.awayGames++;
+                    tA.awayGoalsScored += m.ftag;
+                    tA.awayGoalsConceded += m.fthg;
+                });
+
+                teams.forEach(team => {
+                    let t = teamStats[team];
+                    t.attackStrengthHome = (t.homeGames > 0 ? t.homeGoalsScored / t.homeGames : leagueAvgHomeGoals) / leagueAvgHomeGoals;
+                    t.attackStrengthAway = (t.awayGames > 0 ? t.awayGoalsScored / t.awayGames : leagueAvgAwayGoals) / leagueAvgAwayGoals;
+                    t.defenseStrengthHome = (t.homeGames > 0 ? t.homeGoalsConceded / t.homeGames : leagueAvgAwayGoals) / leagueAvgAwayGoals;
+                    t.defenseStrengthAway = (t.awayGames > 0 ? t.awayGoalsConceded / t.awayGames : leagueAvgHomeGoals) / leagueAvgHomeGoals;
+                });
+
+                status.className = 'text-xs mt-1.5 text-emerald-400';
+                status.innerText = `Berhasil memuat ${matchData.length} pertandingan dari Cloud!`;
+
+                populateTeamDropdowns();
+                runOddsCalibration();
+
+            } catch(err) {
+                status.className = 'text-xs mt-1.5 text-rose-400';
+                status.innerText = 'Gagal: ' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
+```
